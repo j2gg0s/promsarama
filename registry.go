@@ -9,10 +9,12 @@ import (
 	"github.com/rcrowley/go-metrics"
 )
 
-type Registry struct {
-	m  sync.Map
-	mu sync.Mutex
+var (
+	m  = sync.Map{}
+	mu = sync.Mutex{}
+)
 
+type Registry struct {
 	Registerer prometheus.Registerer
 	Buckets    []float64
 }
@@ -40,12 +42,12 @@ func (r *Registry) UnregisterAll() {}
 func (r *Registry) GetOrRegister(name string, f interface{}) interface{} {
 	name = strings.ReplaceAll(name, "-", "_")
 
-	if v, ok := r.m.Load(name); ok {
+	if v, ok := m.Load(name); ok {
 		return v
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 
 	t := reflect.TypeOf(f)
 	if t.Kind() != reflect.Func || t.NumOut() != 1 {
@@ -85,15 +87,12 @@ func (r *Registry) GetOrRegister(name string, f interface{}) interface{} {
 			gauge: g,
 		}
 	}
-	r.m.Store(name, v)
+	m.Store(name, v)
 	return v
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		m:  sync.Map{},
-		mu: sync.Mutex{},
-
 		Registerer: prometheus.DefaultRegisterer,
 		Buckets:    prometheus.ExponentialBuckets(1.0, 1.05, 512),
 	}
